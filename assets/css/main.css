@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* PixlHub Design System Base Styles */
+  
+  * {
+    @apply border-gray-200 dark:border-gray-700;
+  }
+
+  html {
+    @apply antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body {
+    @apply bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-gray-100;
+    @apply font-sans text-body;
+  }
+
+  /* Typography Scale */
+  h1 {
+    @apply text-h1 font-display;
+  }
+
+  h2 {
+    @apply text-h2 font-display;
+  }
+
+  h3 {
+    @apply text-h3 font-display;
+  }
+
+  /* Focus States */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-pixl-blue ring-offset-2 ring-offset-white dark:ring-offset-slate-950;
+  }
+}
+
+@layer components {
+  /* PixlHub Component Utilities */
+  
+  .pixl-card {
+    @apply bg-white dark:bg-slate-900 rounded-lg shadow-card p-3 border border-gray-100 dark:border-gray-800;
+  }
+
+  .pixl-input {
+    @apply w-full px-3 py-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-gray-700 rounded-sm;
+    @apply text-body placeholder:text-gray-400 dark:placeholder:text-gray-500;
+    @apply transition-colors duration-150;
+  }
+
+  .pixl-input:focus {
+    @apply border-pixl-blue ring-2 ring-pixl-blue/20;
+  }
+
+  .pixl-btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-sm font-medium;
+    @apply transition-all duration-150 ease-in-out;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+  }
+
+  .pixl-btn-primary {
+    @apply pixl-btn bg-pixl-blue text-white hover:bg-blue-600 active:bg-blue-700;
+    @apply focus-visible:ring-pixl-blue;
+  }
+
+  .pixl-btn-secondary {
+    @apply pixl-btn bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+    @apply hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-300 dark:active:bg-gray-600;
+    @apply focus-visible:ring-gray-400;
+  }
+
+  .pixl-btn-ghost {
+    @apply pixl-btn bg-transparent text-gray-700 dark:text-gray-300;
+    @apply hover:bg-gray-100 dark:hover:bg-gray-800;
+  }
+
+  .pixl-btn:disabled {
+    @apply opacity-40 cursor-not-allowed pointer-events-none;
+  }
+
+  /* Layout Utilities */
+  .pixl-container {
+    @apply max-w-screen-xl mx-auto px-4;
+  }
+
+  .pixl-section {
+    @apply py-6;
+  }
+
+  /* Animation Utilities */
+  .pixl-transition {
+    @apply transition-all duration-200 ease-in-out;
+  }
+
+  .pixl-fade-in {
+    animation: fadeIn 200ms ease-in-out;
+  }
+
+  .pixl-slide-up {
+    animation: slideUp 250ms ease-out;
+  }
+}
+
+@layer utilities {
+  /* Custom Utilities */
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Naive UI Theme Overrides */
+:root {
+  --n-color-primary: #2563EB;
+  --n-color-success: #10B981;
+  --n-color-warning: #F59E0B;
+  --n-color-error: #EF4444;
+  --n-border-radius: 8px;
+  --n-font-family: 'Inter', system-ui, sans-serif;
+}
