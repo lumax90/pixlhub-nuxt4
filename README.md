@@ -42,26 +42,31 @@ PixlHub is a modern, scalable, and feature-rich data labeling platform built for
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 20+ 
-- npm 10+
-
-### Installation
+### ⚡ 5-Minute Setup
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd PixlHub
-
-# Install dependencies
+git clone https://github.com/lumax90/pixlhub-nuxt4.git
+cd pixlhub-nuxt4
 npm install
-
-# Start development server
+cp .env.example .env
+docker-compose up -d
+npx prisma migrate dev
 npm run dev
 ```
 
-The application will be available at `http://localhost:3000`
+**Open http://localhost:3000** 🎉
+
+### 📚 Documentation
+
+- **[QUICKSTART.md](./QUICKSTART.md)** - Quick reference card
+- **[SETUP.md](./SETUP.md)** - Complete setup guide with troubleshooting
+- **[README-DOCKER.md](./README-DOCKER.md)** - Docker configuration details
+
+### Prerequisites
+
+- Node.js 20+
+- Docker Desktop
+- Git
 
 ## 📁 Project Structure
 
