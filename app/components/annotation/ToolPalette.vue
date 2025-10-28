@@ -4,6 +4,7 @@ import {
   SquareDashedMousePointer,
   CircleDot,
   Waypoints,
+  PenTool,
   Pen,
   MessageSquareDashed,
   ChevronDown,
@@ -41,7 +42,6 @@ const onDrag = (e: MouseEvent) => {
   const canvas = paletteRef.value.parentElement
   if (!canvas) return
   
-  const paletteRect = paletteRef.value.getBoundingClientRect()
   const canvasRect = canvas.getBoundingClientRect()
   
   let newX = e.clientX - dragStart.value.x
@@ -50,24 +50,37 @@ const onDrag = (e: MouseEvent) => {
   // Magnetic snap threshold (in pixels)
   const snapThreshold = 20
   
+  // Get the actual element dimensions (before rotation transform)
+  const actualWidth = paletteRef.value.offsetWidth
+  const actualHeight = paletteRef.value.offsetHeight
+  
   // When rotated, the visual bounds are different from position bounds
   // because transform-origin is top-left
   if (rotation.value !== 0) {
-    // Rotated 90deg: height becomes width visually
-    const visualWidth = paletteRect.width
-    const visualHeight = paletteRect.height
+    // Rotated -90deg: width and height swap visually
+    // When rotated -90deg with origin at top-left:
+    // - The top edge moves down by actualWidth
+    // - The palette extends right by actualHeight
+    const visualWidth = actualHeight
+    const visualHeight = actualWidth
     
-    // Constrain bounds accounting for rotation
+    // The position is the transform origin, but visually the palette extends differently
+    // Top edge is at: Y - actualWidth (because it rotates up from origin)
+    // So to keep top edge at 0: Y must be >= actualWidth
+    const minY = actualWidth
+    const maxY = canvasRect.height
+    
+    // Constrain bounds
     newX = Math.max(0, Math.min(newX, canvasRect.width - visualWidth))
-    newY = Math.max(0, Math.min(newY, canvasRect.height - visualHeight))
+    newY = Math.max(minY, Math.min(newY, maxY))
     
-    // Snap to top edge
-    if (newY < snapThreshold) {
-      newY = 0
+    // Snap to top edge (visual top = Y - actualWidth = 0, so Y = actualWidth)
+    if (Math.abs(newY - minY) < snapThreshold) {
+      newY = minY
     }
-    // Snap to bottom edge
-    if (newY > canvasRect.height - visualHeight - snapThreshold) {
-      newY = canvasRect.height - visualHeight
+    // Snap to bottom edge (visual bottom = Y, so Y = canvasHeight)
+    if (Math.abs(newY - maxY) < snapThreshold) {
+      newY = maxY
     }
     // Snap to left edge
     if (newX < snapThreshold) {
@@ -79,16 +92,20 @@ const onDrag = (e: MouseEvent) => {
     }
   } else {
     // Normal vertical orientation
-    newX = Math.max(0, Math.min(newX, canvasRect.width - paletteRect.width))
-    newY = Math.max(0, Math.min(newY, canvasRect.height - paletteRect.height))
+    newX = Math.max(0, Math.min(newX, canvasRect.width - actualWidth))
+    newY = Math.max(0, Math.min(newY, canvasRect.height - actualHeight))
     
     // Snap to left edge
     if (newX < snapThreshold) {
       newX = 0
     }
     // Snap to right edge
-    if (newX > canvasRect.width - paletteRect.width - snapThreshold) {
-      newX = canvasRect.width - paletteRect.width
+    if (newX > canvasRect.width - actualWidth - snapThreshold) {
+      newX = canvasRect.width - actualWidth
+    }
+    // Snap to top edge
+    if (newY < snapThreshold) {
+      newY = 0
     }
   }
   
@@ -112,22 +129,32 @@ const toggleOrientation = () => {
   
   const newRotation = rotation.value === 0 ? -90 : 0
   
-  // Check if rotation would go outside bounds
-  const paletteRect = paletteRef.value.getBoundingClientRect()
+  // Get actual dimensions (before rotation)
+  const actualWidth = paletteRef.value.offsetWidth
+  const actualHeight = paletteRef.value.offsetHeight
   const canvasRect = canvas.getBoundingClientRect()
   
   // If rotating, check if it fits
   if (newRotation !== 0) {
-    const wouldFitHorizontally = position.value.x + paletteRect.height <= canvasRect.width
-    const wouldFitVertically = position.value.y + paletteRect.width <= canvasRect.height
+    // After rotation: width becomes height, height becomes width
+    const visualWidth = actualHeight
+    const visualHeight = actualWidth
+    
+    // When rotated, Y position must be at least actualWidth (so top edge is at 0)
+    const minY = actualWidth
+    const maxY = canvasRect.height
+    
+    const wouldFitHorizontally = position.value.x + visualWidth <= canvasRect.width
+    const wouldFitVertically = position.value.y >= minY && position.value.y <= maxY
     
     if (!wouldFitHorizontally || !wouldFitVertically) {
       // Adjust position to fit
       if (!wouldFitHorizontally) {
-        position.value.x = Math.max(0, canvasRect.width - paletteRect.height)
+        position.value.x = Math.max(0, canvasRect.width - visualWidth)
       }
       if (!wouldFitVertically) {
-        position.value.y = Math.max(0, canvasRect.height - paletteRect.width)
+        // Clamp between minY and maxY
+        position.value.y = Math.max(minY, Math.min(position.value.y, maxY))
       }
     }
   }
@@ -140,15 +167,16 @@ const tools = [
   { type: 'bbox', icon: SquareDashedMousePointer, label: 'Bounding Box' },
   { type: 'point', icon: CircleDot, label: 'Point' },
   { type: 'polygon', icon: Waypoints, label: 'Polygon' },
+  { type: 'line', icon: PenTool, label: 'Line' },
   { type: 'freeform', icon: Pen, label: 'Freeform' },
   { type: 'comment', icon: MessageSquareDashed, label: 'Comment' }
 ]
 
 const aiTools = [
-  { type: 'auto-detect', icon: Zap, label: 'Auto Detect' },
-  { type: 'auto-polygon', icon: Shapes, label: 'Auto Polygon' },
-  { type: 'polygon-from-box', icon: Square, label: 'Polygon from Box' },
-  { type: 'magnetic-lasso', icon: Magnet, label: 'Magnetic Lasso' }
+  { type: 'ai-polygon', icon: Square, label: 'AI Polygon from Box', active: true },
+  { type: 'auto-detect', icon: Zap, label: 'Auto Detect (Coming Soon)', active: false },
+  { type: 'auto-polygon', icon: Shapes, label: 'Auto Polygon (Coming Soon)', active: false },
+  { type: 'magnetic-lasso', icon: Magnet, label: 'Magnetic Lasso (Coming Soon)', active: false }
 ]
 </script>
 
@@ -246,12 +274,16 @@ const aiTools = [
           <button
             v-for="(tool, index) in aiTools"
             :key="tool.type"
-            @click="annotationStore.setTool(tool.type as any)"
+            @click="tool.active ? annotationStore.setTool(tool.type as any) : null"
+            :disabled="!tool.active"
             :class="[
               'w-full aspect-square rounded-md border flex items-center justify-center transition-all duration-150',
+              !tool.active && 'opacity-40 cursor-not-allowed',
               annotationStore.currentTool === tool.type
                 ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700 text-purple-600 dark:text-purple-400 shadow-sm'
-                : 'border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 hover:shadow-sm dark:hover:shadow-md'
+                : tool.active 
+                  ? 'border-purple-200 dark:border-purple-800 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/20 hover:shadow-sm dark:hover:shadow-md'
+                  : 'border-gray-300 dark:border-gray-700 text-gray-400 dark:text-gray-600'
             ]"
             :style="{ 
               transitionDelay: `${index * 30}ms`,

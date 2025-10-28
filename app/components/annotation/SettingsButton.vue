@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Settings } from 'lucide-vue-next'
+import { NButton, NIcon } from 'naive-ui'
 
 const emit = defineEmits<{
   click: []
@@ -7,11 +8,19 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <button
-    @click="emit('click')"
-    class="fixed right-4 bottom-4 z-40 p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-150"
-    title="Settings"
-  >
-    <Settings :size="16" :stroke-width="2" />
-  </button>
+  <div class="fixed bottom-4 z-40" style="right: calc(32px + 1rem);">
+    <NButton
+      circle
+      type="primary"
+      size="medium"
+      @click="emit('click')"
+      title="Canvas Settings"
+    >
+      <template #icon>
+        <NIcon :size="18">
+          <Settings />
+        </NIcon>
+      </template>
+    </NButton>
+  </div>
 </template>

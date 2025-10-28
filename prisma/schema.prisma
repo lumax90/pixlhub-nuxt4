@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// CORE MODELS
+// ============================================
+
+model Project {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  status          String   @default("active") // active, paused, completed, archived
+  toolType        String   // image, text, audio, video
+  annotationType  String   // bounding-box, polygon, classification, sentiment, etc.
+  
+  totalAssets     Int      @default(0)
+  totalTasks      Int      @default(0)
+  completedTasks  Int      @default(0)
+  
+  metadata        Json?    // Store guidelines, settings, etc.
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  labels          Label[]
+  assets          Asset[]
+  tasks           Task[]
+  exports         Export[]
+  notifications   Notification[]
+  
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Label {
+  id          String   @id @default(cuid())
+  name        String
+  color       String
+  description String?
+  shortcut    String?  // Keyboard shortcut (1-9)
+  order       Int      @default(0) // Display order in UI
+  attributes  Json?    // Label attributes configuration
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  annotations Annotation[]
+  
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@index([projectId, order])
+}
+
+// Asset = Uploaded file/data
+model Asset {
+  id          String   @id @default(cuid())
+  name        String
+  type        String   // image, text, audio, video, document, rlhf
+  url         String   // URL or path to the asset
+  content     String?  @db.Text // For text/RLHF, store content directly
+  metadata    Json?    // Metadata (dimensions, duration, batch info, etc.)
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  tasks       Task[]
+  
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([type])
+}
+
+// Task = Work assignment for an asset
+model Task {
+  id          String   @id @default(cuid())
+  status      String   @default("label") // prelabel, label, review, completed
+  priority    Int      @default(0)
+  
+  assetId     String
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  assignedTo  String?  // User ID (we'll add User model later)
+  assignedAt  DateTime?
+  
+  queuedAt    DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  
+  // Time tracking
+  timeSpent   Int      @default(0)  // Total active seconds spent on this task
+  
+  // Relations
+  annotations Annotation[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([projectId])
+  @@index([assetId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([queuedAt])
+}
+
+model Annotation {
+  id          String   @id @default(cuid())
+  type        String   // bbox, polygon, point, classification, etc.
+  
+  // Annotation data (stored as JSON for flexibility)
+  data        Json     // { bbox: {...}, polygon: {...}, point: {...}, etc. }
+  
+  labelId     String
+  label       Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  createdBy   String?  // User ID
+  reviewedBy  String?  // User ID
+  
+  status      String   @default("pending") // pending, approved, rejected
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([taskId])
+  @@index([labelId])
+  @@index([status])
+}
+
+// Export = Export history and versioning
+model Export {
+  id            String   @id @default(cuid())
+  
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  format        String   // json, coco, yolo, yolov8-seg, pascal-voc, csv, custom
+  version       Int      @default(1) // Version number for this export
+  
+  filename      String
+  fileUrl       String   // MinIO URL
+  fileSize      Int      // Size in bytes
+  
+  options       Json     // Export options used
+  customTemplate Json?   // Custom template if format is 'custom'
+  
+  // Filters applied
+  dateRangeStart DateTime?
+  dateRangeEnd   DateTime?
+  statusFilter   String?  // completed, label, review
+  
+  // Stats
+  taskCount      Int      @default(0)
+  annotationCount Int     @default(0)
+  
+  exportedBy    String?  // User ID
+  
+  createdAt     DateTime @default(now())
+  expiresAt     DateTime? // Optional expiration for the file
+  
+  @@index([projectId])
+  @@index([createdAt])
+  @@index([format])
+}
+
+// Notification = User notifications
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String   // User who receives this notification
+  type        String   // task_assigned, review_required, task_completed, comment_added, etc.
+  title       String
+  message     String
+  
+  // Related entities
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId      String?
+  
+  // Metadata
+  data        Json?    // Additional data (e.g., task details, comment content)
+  
+  // Status
+  read        Boolean  @default(false)
+  readAt      DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([userId])
+  @@index([userId, read])
+  @@index([createdAt])
+}

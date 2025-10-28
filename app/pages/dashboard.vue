@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { TrendingUp, Users, CheckCircle, Clock } from 'lucide-vue-next'
+import { TrendingUp, Users, CheckCircle, Clock, FolderOpen, Activity } from 'lucide-vue-next'
+import { NGrid, NGridItem, NCard, NStatistic, NProgress, NList, NListItem, NThing, NIcon, NSpace, NTag } from 'naive-ui'
 
 definePageMeta({
   layout: false
 })
 
 const projectStore = useProjectStore()
+const router = useRouter()
 
 onMounted(async () => {
   await projectStore.fetchProjects()
@@ -26,36 +28,26 @@ const stats = computed(() => {
   }
 })
 
-const statCards = computed(() => [
-  {
-    title: 'Total Projects',
-    value: stats.value.totalProjects,
-    icon: TrendingUp,
-    color: 'text-pixl-blue',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/20'
-  },
-  {
-    title: 'Active Projects',
-    value: stats.value.activeProjects,
-    icon: Users,
-    color: 'text-pixl-success',
-    bgColor: 'bg-green-100 dark:bg-green-900/20'
-  },
-  {
-    title: 'Completed Tasks',
-    value: stats.value.completedTasks,
-    icon: CheckCircle,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100 dark:bg-purple-900/20'
-  },
-  {
-    title: 'Total Tasks',
-    value: stats.value.totalTasks,
-    icon: Clock,
-    color: 'text-pixl-warning',
-    bgColor: 'bg-yellow-100 dark:bg-yellow-900/20'
-  }
+// Chart data for project distribution
+const projectsByType = computed(() => {
+  const types = projectStore.projects.reduce((acc, p) => {
+    acc[p.toolType] = (acc[p.toolType] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+  return Object.entries(types).map(([name, value]) => ({ name, value }))
+})
+
+// Recent activity
+const recentActivity = computed(() => [
+  { type: 'completed', project: 'Street Signs Detection', time: '2 hours ago' },
+  { type: 'started', project: 'Vehicle Classification', time: '5 hours ago' },
+  { type: 'review', project: 'Pedestrian Tracking', time: '1 day ago' },
+  { type: 'created', project: 'Traffic Light Detection', time: '2 days ago' }
 ])
+
+function goToProject(id: string) {
+  router.push(`/projects/${id}`)
+}
 </script>
 
 <template>
@@ -65,87 +57,175 @@ const statCards = computed(() => [
     <div class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
       <!-- Header -->
       <div class="mb-6">
-        <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
-        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+        <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+        <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
           Overview of your annotation workflow
         </p>
       </div>
 
-    <!-- Stats Grid -->
-    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <UiCard v-for="stat in statCards" :key="stat.title">
-        <div class="flex items-start justify-between">
-          <div>
-            <p class="text-small text-gray-600 dark:text-gray-400 mb-1">
-              {{ stat.title }}
-            </p>
-            <p class="text-3xl font-display font-semibold text-gray-900 dark:text-gray-100">
-              {{ stat.value }}
-            </p>
-          </div>
-          <div :class="['p-2 rounded-sm', stat.bgColor]">
-            <component :is="stat.icon" :size="24" :class="stat.color" />
-          </div>
-        </div>
-      </UiCard>
-    </div>
+      <!-- Stats Grid -->
+      <NGrid :cols="4" :x-gap="12" :y-gap="12" responsive="screen" class="mb-4">
+        <NGridItem>
+          <NCard size="small" :bordered="false">
+            <NStatistic label="Total Projects" :value="stats.totalProjects">
+              <template #prefix>
+                <NIcon :size="20" color="#3B82F6">
+                  <FolderOpen />
+                </NIcon>
+              </template>
+            </NStatistic>
+          </NCard>
+        </NGridItem>
+        <NGridItem>
+          <NCard size="small" :bordered="false">
+            <NStatistic label="Active Projects" :value="stats.activeProjects">
+              <template #prefix>
+                <NIcon :size="20" color="#10B981">
+                  <Activity />
+                </NIcon>
+              </template>
+            </NStatistic>
+          </NCard>
+        </NGridItem>
+        <NGridItem>
+          <NCard size="small" :bordered="false">
+            <NStatistic label="Completed Tasks" :value="stats.completedTasks">
+              <template #prefix>
+                <NIcon :size="20" color="#8B5CF6">
+                  <CheckCircle />
+                </NIcon>
+              </template>
+            </NStatistic>
+          </NCard>
+        </NGridItem>
+        <NGridItem>
+          <NCard size="small" :bordered="false">
+            <NStatistic label="Total Tasks" :value="stats.totalTasks">
+              <template #prefix>
+                <NIcon :size="20" color="#F59E0B">
+                  <Clock />
+                </NIcon>
+              </template>
+            </NStatistic>
+          </NCard>
+        </NGridItem>
+      </NGrid>
 
-    <!-- Completion Rate -->
-    <UiCard title="Overall Completion Rate" class="mb-6">
-      <div class="flex items-center gap-4">
-        <div class="flex-1">
-          <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-4">
-            <div
-              class="bg-gradient-to-r from-pixl-blue to-blue-600 h-4 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
-              :style="{ width: `${stats.completionRate}%` }"
+      <!-- Charts & Progress -->
+      <NGrid :cols="2" :x-gap="12" :y-gap="12" responsive="screen" class="mb-4">
+        <!-- Overall Progress -->
+        <NGridItem>
+          <NCard title="Overall Completion" size="small" :bordered="false">
+            <NProgress
+              type="circle"
+              :percentage="stats.completionRate"
+              :stroke-width="12"
+              :height="180"
             >
-              <span class="text-xs text-white font-semibold">
-                {{ stats.completionRate }}%
-              </span>
+              <div class="text-center">
+                <div class="text-2xl font-bold">{{ stats.completionRate }}%</div>
+                <div class="text-xs text-gray-500 mt-1">Complete</div>
+              </div>
+            </NProgress>
+            <div class="flex justify-between mt-4 text-xs text-gray-600 dark:text-gray-400">
+              <span>{{ stats.completedTasks }} done</span>
+              <span>{{ stats.totalTasks - stats.completedTasks }} remaining</span>
             </div>
-          </div>
-          <div class="flex justify-between mt-2 text-small text-gray-600 dark:text-gray-400">
-            <span>{{ stats.completedTasks }} completed</span>
-            <span>{{ stats.totalTasks }} total</span>
-          </div>
-        </div>
-      </div>
-    </UiCard>
+          </NCard>
+        </NGridItem>
 
-    <!-- Recent Projects -->
-    <UiCard title="Recent Projects">
-      <div v-if="projectStore.projects.length === 0" class="text-center py-8 text-gray-500 dark:text-gray-400">
-        No projects available
-      </div>
-      
-      <div v-else class="space-y-3">
-        <div
-          v-for="project in projectStore.projects.slice(0, 5)"
-          :key="project.id"
-          class="flex items-center justify-between p-3 rounded-sm hover:bg-gray-50 dark:hover:bg-gray-800 pixl-transition"
-        >
-          <div class="flex-1">
-            <h4 class="text-body font-medium text-gray-900 dark:text-gray-100">
-              {{ project.name }}
-            </h4>
-            <p class="text-small text-gray-600 dark:text-gray-400">
-              {{ project.completedTasks }} / {{ project.totalTasks }} tasks completed
-            </p>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="w-24 bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-              <div
-                class="bg-pixl-blue h-2 rounded-full"
-                :style="{ width: `${(project.completedTasks / project.totalTasks) * 100}%` }"
-              />
+        <!-- Project Distribution -->
+        <NGridItem>
+          <NCard title="Project Distribution" size="small" :bordered="false">
+            <div class="space-y-3">
+              <div v-for="item in projectsByType" :key="item.name" class="space-y-1">
+                <div class="flex justify-between text-xs">
+                  <span class="capitalize">{{ item.name }}</span>
+                  <span class="font-medium">{{ item.value }}</span>
+                </div>
+                <NProgress
+                  :percentage="(item.value / stats.totalProjects) * 100"
+                  :show-indicator="false"
+                  :height="6"
+                />
+              </div>
             </div>
-            <span class="text-small font-medium text-gray-700 dark:text-gray-300 w-12 text-right">
-              {{ Math.round((project.completedTasks / project.totalTasks) * 100) }}%
-            </span>
-          </div>
-        </div>
-      </div>
-    </UiCard>
+          </NCard>
+        </NGridItem>
+      </NGrid>
+
+      <!-- Recent Projects & Activity -->
+      <NGrid :cols="2" :x-gap="12" :y-gap="12" responsive="screen">
+        <!-- Recent Projects -->
+        <NGridItem>
+          <NCard title="Recent Projects" size="small" :bordered="false">
+            <NList v-if="projectStore.projects.length > 0" hoverable clickable>
+              <NListItem
+                v-for="project in projectStore.projects.slice(0, 5)"
+                :key="project.id"
+                @click="goToProject(project.id)"
+              >
+                <NThing :title="project.name">
+                  <template #description>
+                    <NSpace :size="8" align="center">
+                      <span class="text-xs">{{ project.completedTasks }}/{{ project.totalTasks }} tasks</span>
+                      <NTag
+                        :type="project.status === 'active' ? 'success' : 'default'"
+                        size="small"
+                      >
+                        {{ project.status }}
+                      </NTag>
+                    </NSpace>
+                  </template>
+                  <template #footer>
+                    <NProgress
+                      :percentage="project.totalTasks > 0 ? Math.round((project.completedTasks / project.totalTasks) * 100) : 0"
+                      :show-indicator="false"
+                      :height="4"
+                    />
+                  </template>
+                </NThing>
+              </NListItem>
+            </NList>
+            <div v-else class="text-center py-8 text-xs text-gray-500">
+              No projects yet
+            </div>
+          </NCard>
+        </NGridItem>
+
+        <!-- Recent Activity -->
+        <NGridItem>
+          <NCard title="Recent Activity" size="small" :bordered="false">
+            <NList>
+              <NListItem v-for="(activity, index) in recentActivity" :key="index">
+                <NThing>
+                  <template #avatar>
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center" :class="[
+                      activity.type === 'completed' ? 'bg-green-100 dark:bg-green-900/20' :
+                      activity.type === 'started' ? 'bg-blue-100 dark:bg-blue-900/20' :
+                      activity.type === 'review' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
+                      'bg-gray-100 dark:bg-gray-800'
+                    ]">
+                      <CheckCircle v-if="activity.type === 'completed'" :size="14" class="text-green-600" />
+                      <Activity v-else-if="activity.type === 'started'" :size="14" class="text-blue-600" />
+                      <Clock v-else :size="14" class="text-gray-600" />
+                    </div>
+                  </template>
+                  <template #header>
+                    <span class="text-xs font-medium capitalize">{{ activity.type }}</span>
+                  </template>
+                  <template #description>
+                    <div class="text-xs text-gray-600 dark:text-gray-400">{{ activity.project }}</div>
+                  </template>
+                  <template #footer>
+                    <span class="text-xs text-gray-500">{{ activity.time }}</span>
+                  </template>
+                </NThing>
+              </NListItem>
+            </NList>
+          </NCard>
+        </NGridItem>
+      </NGrid>
     </div>
   </div>
 </template>

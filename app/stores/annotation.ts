@@ -8,7 +8,8 @@ export const useAnnotationStore = defineStore('annotation', () => {
   const labels = ref<Label[]>([])
   const selectedLabelId = ref<string | null>(null)
   const selectedAnnotationId = ref<string | null>(null)
-  const currentTool = ref<'select' | 'bbox' | 'polygon' | 'point'>('bbox')
+  const currentTool = ref<'select' | 'bbox' | 'polygon' | 'point' | 'line' | 'freeform' | 'comment'>('bbox')
+  const currentProjectId = ref<string | null>(null) // Track current project
   
   // Canvas transform state
   const canvasTransform = ref({
@@ -53,7 +54,9 @@ export const useAnnotationStore = defineStore('annotation', () => {
     // Calculate scaled image size to fit canvas
     calculateScaledImageSize()
     
-    // Reset history
+    // Clear old history and start fresh for this task
+    history.value = []
+    historyIndex.value = -1
     saveToHistory()
   }
   
@@ -79,12 +82,15 @@ export const useAnnotationStore = defineStore('annotation', () => {
     calculateScaledImageSize()
   }
   
-  function setTool(tool: 'select' | 'bbox' | 'polygon' | 'point') {
+  function setTool(tool: 'select' | 'bbox' | 'polygon' | 'point' | 'line' | 'freeform' | 'comment') {
     currentTool.value = tool
   }
   
-  function setLabels(newLabels: Label[]) {
+  function setLabels(newLabels: Label[], projectId?: string) {
     labels.value = newLabels
+    if (projectId) {
+      currentProjectId.value = projectId
+    }
     if (newLabels.length > 0 && !selectedLabelId.value && newLabels[0]) {
       selectedLabelId.value = newLabels[0].id
     }
@@ -92,6 +98,11 @@ export const useAnnotationStore = defineStore('annotation', () => {
   
   function setSelectedLabel(labelId: string) {
     selectedLabelId.value = labelId
+    
+    // Save to localStorage for persistence across tasks
+    if (currentProjectId.value) {
+      localStorage.setItem(`lastSelectedLabel_${currentProjectId.value}`, labelId)
+    }
   }
   
   function addAnnotation(annotation: Annotation) {
@@ -139,11 +150,20 @@ export const useAnnotationStore = defineStore('annotation', () => {
     // Remove any future history if we're not at the end
     const newHistory = history.value.slice(0, historyIndex.value + 1)
     
-    // Deep clone current annotations
-    newHistory.push(JSON.parse(JSON.stringify(annotations.value)))
+    // Deep clone current annotations using JSON (safe for all data types)
+    // Note: structuredClone fails with Konva objects and circular references
+    try {
+      const cloned = JSON.parse(JSON.stringify(annotations.value))
+      newHistory.push(cloned)
+    } catch (error) {
+      console.error('Failed to save history:', error)
+      // If JSON fails, just push a shallow copy as fallback
+      newHistory.push([...annotations.value])
+    }
     
-    // Keep only last 50 states
-    if (newHistory.length > 50) {
+    // Limit history to 20 entries to prevent memory issues
+    // (Reduced from 50 for better performance - still enough for undo/redo)
+    if (newHistory.length > 20) {
       newHistory.shift()
     } else {
       historyIndex.value++
@@ -155,6 +175,7 @@ export const useAnnotationStore = defineStore('annotation', () => {
   function undo() {
     if (canUndo.value) {
       historyIndex.value--
+      // Use JSON parse/stringify for safe cloning
       annotations.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
       saveToLocalStorage()
     }
@@ -163,6 +184,7 @@ export const useAnnotationStore = defineStore('annotation', () => {
   function redo() {
     if (canRedo.value) {
       historyIndex.value++
+      // Use JSON parse/stringify for safe cloning
       annotations.value = JSON.parse(JSON.stringify(history.value[historyIndex.value]))
       saveToLocalStorage()
     }
@@ -185,38 +207,39 @@ export const useAnnotationStore = defineStore('annotation', () => {
     canvasTransform.value = { ...canvasTransform.value, ...transform }
   }
   
-  // LocalStorage persistence
-  function saveToLocalStorage() {
+  // LocalStorage persistence with debouncing
+  let saveTimeout: NodeJS.Timeout | null = null
+  
+  function saveToLocalStorage(immediate = false) {
     if (!currentImage.value) return
     
-    try {
-      const data = {
-        image: currentImage.value,
-        annotations: annotations.value,
-        labels: labels.value
+    // Clear existing timeout
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+    }
+    
+    const doSave = () => {
+      try {
+        const data = {
+          image: currentImage.value,
+          annotations: annotations.value,
+          labels: labels.value
+        }
+        localStorage.setItem('pixlhub-annotations', JSON.stringify(data))
+      } catch (error) {
+        console.error('Failed to save to localStorage:', error)
       }
-      localStorage.setItem('pixlhub-annotations', JSON.stringify(data))
-    } catch (error) {
-      console.error('Failed to save to localStorage:', error)
+    }
+    
+    if (immediate) {
+      // Save immediately (on submit, navigation, etc.)
+      doSave()
+    } else {
+      // Debounce: wait 500ms after last change
+      saveTimeout = setTimeout(doSave, 500)
     }
   }
   
-  function loadFromLocalStorage() {
-    try {
-      const stored = localStorage.getItem('pixlhub-annotations')
-      if (stored) {
-        const data = JSON.parse(stored)
-        if (data.image) {
-          setImage(data.image)
-        }
-        if (data.labels) {
-          setLabels(data.labels)
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load from localStorage:', error)
-    }
-  }
   
   function reset() {
     currentImage.value = null
@@ -265,7 +288,6 @@ export const useAnnotationStore = defineStore('annotation', () => {
     resetZoom,
     setCanvasTransform,
     saveToLocalStorage,
-    loadFromLocalStorage,
     reset
   }
 })

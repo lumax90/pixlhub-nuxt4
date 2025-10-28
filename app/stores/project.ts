@@ -43,55 +43,16 @@ export const useProjectStore = defineStore('project', () => {
   async function fetchProjects() {
     isLoading.value = true
     try {
-      // TODO: Implement actual API call
-      // const data = await $fetch('/api/projects')
+      const response = await $fetch('/api/projects')
       
-      // Mock data for development with UUIDs
-      const mockProjects: Project[] = [
-        {
-          id: 'proj_8f4e9d2a1c3b5e7f',
-          tenantId: 'org_acme_corp',
-          name: 'Street Signs Detection',
-          description: 'Annotate traffic signs and road markings for autonomous vehicle training',
-          status: 'active',
-          annotationType: 'bounding-box',
-          totalTasks: 1250,
-          completedTasks: 847,
-          createdBy: 'user_john_doe',
-          createdAt: new Date('2024-01-15'),
-          updatedAt: new Date()
-        },
-        {
-          id: 'proj_2b7c4f6a9e1d8h3k',
-          tenantId: 'org_acme_corp',
-          name: 'Pedestrian Segmentation',
-          description: 'Segment people in urban environments for crowd analysis',
-          status: 'active',
-          annotationType: 'segmentation',
-          totalTasks: 850,
-          completedTasks: 320,
-          createdBy: 'user_jane_smith',
-          createdAt: new Date('2024-02-20'),
-          updatedAt: new Date()
-        },
-        {
-          id: 'proj_5k9m2n4p7q1r3s6t',
-          tenantId: 'org_tech_labs',
-          name: 'Vehicle Classification',
-          description: 'Classify vehicle types in parking lot surveillance footage',
-          status: 'paused',
-          annotationType: 'classification',
-          totalTasks: 500,
-          completedTasks: 180,
-          createdBy: 'user_mike_wilson',
-          createdAt: new Date('2024-03-10'),
-          updatedAt: new Date()
-        }
-      ]
+      if (response.success && response.data) {
+        projects.value = response.data
+        return { success: true, data: response.data }
+      }
       
-      setProjects(mockProjects)
-      return { success: true, data: mockProjects }
+      return { success: false, error: 'Failed to fetch projects' }
     } catch (error) {
+      console.error('Error fetching projects:', error)
       return { success: false, error: 'Failed to fetch projects' }
     } finally {
       isLoading.value = false
@@ -101,17 +62,25 @@ export const useProjectStore = defineStore('project', () => {
   async function fetchProjectById(id: string) {
     isLoading.value = true
     try {
-      // TODO: Implement actual API call
-      // const data = await $fetch(`/api/projects/${id}`)
+      const response = await $fetch(`/api/projects/${id}`)
       
-      const project = projectById.value(id)
-      if (project) {
-        setCurrentProject(project)
-        return { success: true, data: project }
+      if (response.success && response.data) {
+        setCurrentProject(response.data)
+        
+        // Update in projects list if exists
+        const index = projects.value.findIndex(p => p.id === id)
+        if (index !== -1) {
+          projects.value[index] = response.data
+        } else {
+          projects.value.push(response.data)
+        }
+        
+        return { success: true, data: response.data }
       }
       
       return { success: false, error: 'Project not found' }
     } catch (error) {
+      console.error('Error fetching project:', error)
       return { success: false, error: 'Failed to fetch project' }
     } finally {
       isLoading.value = false
@@ -121,26 +90,19 @@ export const useProjectStore = defineStore('project', () => {
   async function createProject(projectData: Partial<Project>) {
     isLoading.value = true
     try {
-      // TODO: Implement actual API call
-      // const data = await $fetch('/api/projects', {
-      //   method: 'POST',
-      //   body: projectData
-      // })
+      const response = await $fetch('/api/projects', {
+        method: 'POST',
+        body: projectData
+      })
       
-      const newProject: Project = {
-        id: Date.now().toString(),
-        tenantId: 'tenant-1',
-        totalTasks: 0,
-        completedTasks: 0,
-        createdBy: '1',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ...projectData
-      } as Project
+      if (response.success && response.data) {
+        projects.value.push(response.data)
+        return { success: true, data: response.data }
+      }
       
-      projects.value.push(newProject)
-      return { success: true, data: newProject }
+      return { success: false, error: 'Failed to create project' }
     } catch (error) {
+      console.error('Error creating project:', error)
       return { success: false, error: 'Failed to create project' }
     } finally {
       isLoading.value = false
@@ -150,27 +112,35 @@ export const useProjectStore = defineStore('project', () => {
   async function updateProject(id: string, updates: Partial<Project>) {
     isLoading.value = true
     try {
-      // TODO: Implement actual API call
-      // const data = await $fetch(`/api/projects/${id}`, {
-      //   method: 'PATCH',
-      //   body: updates
-      // })
+      const response = await $fetch(`/api/projects/${id}`, {
+        method: 'PUT' as any,
+        body: updates
+      })
       
-      const index = projects.value.findIndex((p: Project) => p.id === id)
-      if (index !== -1) {
-        projects.value[index] = { ...projects.value[index], ...updates } as Project
-        if (currentProject.value?.id === id) {
-          currentProject.value = projects.value[index] || null
+      if (response.success && response.data) {
+        const index = projects.value.findIndex((p: Project) => p.id === id)
+        if (index !== -1) {
+          projects.value[index] = response.data
         }
-        return { success: true, data: projects.value[index] }
+        
+        if (currentProject.value?.id === id) {
+          currentProject.value = response.data
+        }
+        
+        return { success: true, data: response.data }
       }
       
       return { success: false, error: 'Project not found' }
     } catch (error) {
+      console.error('Error updating project:', error)
       return { success: false, error: 'Failed to update project' }
     } finally {
       isLoading.value = false
     }
+  }
+
+  function addProject(project: Project) {
+    projects.value.push(project)
   }
 
   function reset() {
@@ -178,6 +148,7 @@ export const useProjectStore = defineStore('project', () => {
     currentProject.value = null
     currentTask.value = null
     currentDatasetItem.value = null
+    isLoading.value = false
   }
 
   return {
@@ -202,6 +173,7 @@ export const useProjectStore = defineStore('project', () => {
     fetchProjectById,
     createProject,
     updateProject,
+    addProject,
     reset
   }
 })

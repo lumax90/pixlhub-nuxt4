@@ -36,6 +36,8 @@ const loadLabelSchema = () => {
       shortcut: '1',
       description: 'Human beings in the image',
       order: 0,
+      attributes: [],
+      annotationTypes: ['bounding-box', 'polygon'],
       createdAt: new Date(),
       updatedAt: new Date()
     },
@@ -47,6 +49,8 @@ const loadLabelSchema = () => {
       shortcut: '2',
       description: 'Cars, trucks, motorcycles',
       order: 1,
+      attributes: [],
+      annotationTypes: ['bounding-box', 'polygon'],
       createdAt: new Date(),
       updatedAt: new Date()
     },
@@ -58,6 +62,8 @@ const loadLabelSchema = () => {
       shortcut: '3',
       description: 'Road signs and signals',
       order: 2,
+      attributes: [],
+      annotationTypes: ['bounding-box'],
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -75,6 +81,8 @@ const addLabel = () => {
     shortcut: newOrder < 9 ? String(newOrder + 1) : undefined,
     description: '',
     order: newOrder,
+    attributes: [],
+    annotationTypes: ['bounding-box', 'polygon'],
     createdAt: new Date(),
     updatedAt: new Date()
   }

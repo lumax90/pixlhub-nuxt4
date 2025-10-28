@@ -2,6 +2,8 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  
+  ssr: false,  // Pure SPA mode - no server-side rendering
 
   modules: [
     '@nuxtjs/tailwindcss',
@@ -28,5 +30,16 @@ export default defineNuxtConfig({
         { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap' }
       ]
     }
+  },
+
+  runtimeConfig: {
+    // Server-only config (from .env)
+    minioEndpoint: process.env.MINIO_ENDPOINT,
+    minioPort: process.env.MINIO_PORT,
+    minioUseSSL: process.env.MINIO_USE_SSL,
+    minioAccessKey: process.env.MINIO_ACCESS_KEY,
+    minioSecretKey: process.env.MINIO_SECRET_KEY,
+    minioBucket: process.env.MINIO_BUCKET,
+    minioPublicUrl: process.env.MINIO_PUBLIC_URL
   }
 })

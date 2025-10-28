@@ -6,7 +6,8 @@ import {
   ZoomOut,
   Maximize,
   Undo,
-  Redo
+  Redo,
+  Sparkles
 } from 'lucide-vue-next'
 
 const annotationStore = useAnnotationStore()
@@ -26,7 +27,7 @@ const tools = [
         :key="tool.name"
         @click="annotationStore.setTool(tool.name as any)"
         :class="[
-          'p-2 rounded-sm transition-colors',
+          'p-2 rounded-sm transition-colors relative',
           annotationStore.currentTool === tool.name
             ? 'bg-pixl-blue text-white'
             : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'

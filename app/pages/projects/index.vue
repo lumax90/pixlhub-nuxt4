@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Plus, FolderOpen, Clock, CheckCircle2 } from 'lucide-vue-next'
+import { Plus, FolderOpen, Grid3x3, List } from 'lucide-vue-next'
+import { NButton, NCard, NDataTable, NProgress, NTag, NSpace, NButtonGroup } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 
 definePageMeta({
   layout: false
@@ -7,6 +9,69 @@ definePageMeta({
 
 const projectStore = useProjectStore()
 const router = useRouter()
+
+// Modal state
+const showCreateModal = ref(false)
+
+// View mode
+const viewMode = ref<'grid' | 'table'>('grid')
+
+// Table columns for list view
+const columns: DataTableColumns = [
+  {
+    title: 'Name',
+    key: 'name',
+    render: (row: any) => h('div', { class: 'flex items-center gap-2' }, [
+      h(FolderOpen, { size: 14, class: 'text-blue-500' }),
+      h('div', { class: 'min-w-0' }, [
+        h('p', { class: 'text-xs font-medium text-gray-900 dark:text-gray-100 truncate' }, row.name),
+        h('p', { class: 'text-xs text-gray-500 dark:text-gray-400 truncate' }, row.description)
+      ])
+    ])
+  },
+  {
+    title: 'Type',
+    key: 'toolType',
+    width: 120,
+    render: (row: any) => h('span', { class: 'text-xs capitalize' }, row.toolType)
+  },
+  {
+    title: 'Status',
+    key: 'status',
+    width: 100,
+    render: (row: any) => h(NTag, {
+      size: 'small',
+      type: row.status === 'active' ? 'success' : row.status === 'paused' ? 'warning' : 'default'
+    }, { default: () => row.status })
+  },
+  {
+    title: 'Progress',
+    key: 'progress',
+    width: 200,
+    render: (row: any) => {
+      const percentage = row.totalTasks > 0 ? Math.round((row.completedTasks / row.totalTasks) * 100) : 0
+      return h(NProgress, {
+        type: 'line',
+        percentage,
+        height: 6,
+        showIndicator: true,
+        indicatorTextColor: '#666'
+      })
+    }
+  },
+  {
+    title: 'Tasks',
+    key: 'tasks',
+    width: 100,
+    align: 'right',
+    render: (row: any) => h('span', { class: 'text-xs' }, `${row.completedTasks}/${row.totalTasks}`)
+  }
+]
+
+// Handle row click
+function handleRowClick(row: any) {
+  goToProject(row.id)
+}
 
 // Fetch projects on mount
 onMounted(async () => {
@@ -35,102 +100,121 @@ const goToProject = (projectId: string) => {
     
     <div class="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
       <!-- Header -->
-      <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center justify-between mb-4">
         <div>
-          <h1 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">Projects</h1>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Manage your annotation projects
+          <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Projects</h1>
+          <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+            {{ projectStore.projects.length }} projects
           </p>
         </div>
-        <UiButton variant="primary">
-          <Plus :size="18" />
-          New Project
-        </UiButton>
+        <NSpace>
+          <!-- View Toggle -->
+          <NButtonGroup size="small">
+            <NButton @click="viewMode = 'grid'" :type="viewMode === 'grid' ? 'primary' : 'default'">
+              <template #icon>
+                <Grid3x3 :size="14" />
+              </template>
+            </NButton>
+            <NButton @click="viewMode = 'table'" :type="viewMode === 'table' ? 'primary' : 'default'">
+              <template #icon>
+                <List :size="14" />
+              </template>
+            </NButton>
+          </NButtonGroup>
+          <NButton type="primary" size="small" @click="showCreateModal = true">
+            <template #icon>
+              <Plus :size="14" />
+            </template>
+            New Project
+          </NButton>
+        </NSpace>
       </div>
 
     <!-- Loading State -->
-    <div v-if="projectStore.isLoading" class="flex items-center justify-center py-20">
-      <div class="animate-spin w-8 h-8 border-4 border-pixl-blue border-t-transparent rounded-full" />
+    <div v-if="projectStore.isLoading" class="flex items-center justify-center py-12">
+      <div class="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
     </div>
 
-    <!-- Projects Grid -->
-    <div v-else class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <UiCard
+    <!-- Grid View -->
+    <div v-else-if="viewMode === 'grid'" class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <NCard
         v-for="project in projectStore.projects"
         :key="project.id"
         hoverable
-        class="cursor-pointer"
         @click="goToProject(project.id)"
+        class="cursor-pointer"
+        size="small"
       >
-        <div class="flex flex-col gap-3">
-          <!-- Header -->
-          <div class="flex items-start justify-between">
-            <div class="p-2 bg-pixl-blue/10 rounded-sm">
-              <FolderOpen :size="24" class="text-pixl-blue" />
-            </div>
-            <span
-              :class="[
-                'px-2 py-1 rounded text-xs font-medium',
-                getStatusColor(project.status)
-              ]"
-            >
-              {{ project.status }}
-            </span>
-          </div>
-
-          <!-- Project Info -->
-          <div>
-            <h3 class="text-h3 text-gray-900 dark:text-gray-100 mb-1">
+        <div class="flex items-start justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <FolderOpen :size="16" class="text-blue-500" />
+            <h3 class="text-sm font-medium">
               {{ project.name }}
             </h3>
-            <p class="text-small text-gray-600 dark:text-gray-400">
-              {{ project.description }}
-            </p>
           </div>
-
-          <!-- Stats -->
-          <div class="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-            <div class="flex items-center gap-1 text-small text-gray-600 dark:text-gray-400">
-              <Clock :size="16" />
-              <span>{{ project.totalTasks }} tasks</span>
-            </div>
-            <div class="flex items-center gap-1 text-small text-pixl-success">
-              <CheckCircle2 :size="16" />
-              <span>{{ project.completedTasks }} done</span>
-            </div>
-          </div>
-
-          <!-- Progress Bar -->
-          <div class="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
-            <div
-              class="bg-pixl-blue h-2 rounded-full transition-all duration-300"
-              :style="{ width: `${(project.completedTasks / project.totalTasks) * 100}%` }"
-            />
-          </div>
-
-          <!-- Annotation Type -->
-          <div class="text-xs text-gray-500 dark:text-gray-400">
-            Type: <span class="font-medium">{{ project.annotationType }}</span>
-          </div>
+          <NTag
+            :type="project.status === 'active' ? 'success' : project.status === 'paused' ? 'warning' : 'default'"
+            size="small"
+          >
+            {{ project.status }}
+          </NTag>
         </div>
-      </UiCard>
+        
+        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">
+          {{ project.description }}
+        </p>
+        
+        <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 mb-2">
+          <span>{{ project.toolType }}</span>
+          <span>•</span>
+          <span>{{ project.totalTasks }} tasks</span>
+          <span>•</span>
+          <span class="text-green-600 dark:text-green-400">{{ project.completedTasks }} done</span>
+        </div>
+        
+        <NProgress
+          type="line"
+          :percentage="project.totalTasks > 0 ? Math.round((project.completedTasks / project.totalTasks) * 100) : 0"
+          :height="4"
+          :show-indicator="false"
+        />
+      </NCard>
     </div>
+    
+    <!-- Table View -->
+    <NDataTable
+      v-else
+      :columns="columns"
+      :data="projectStore.projects"
+      :bordered="false"
+      :single-line="false"
+      size="small"
+      :row-props="(row: any) => ({ style: 'cursor: pointer;', onClick: () => handleRowClick(row) })"
+    />
 
     <!-- Empty State -->
     <div
       v-if="!projectStore.isLoading && projectStore.projects.length === 0"
-      class="text-center py-20"
+      class="text-center py-12"
     >
-      <FolderOpen :size="64" class="mx-auto text-gray-300 dark:text-gray-700 mb-4" />
-      <h3 class="text-h3 text-gray-900 dark:text-gray-100 mb-2">No projects yet</h3>
-      <p class="text-body text-gray-600 dark:text-gray-400 mb-6">
-        Create your first annotation project to get started
+      <FolderOpen :size="48" class="mx-auto text-gray-300 dark:text-gray-700 mb-3" />
+      <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">No projects yet</h3>
+      <p class="text-xs text-gray-600 dark:text-gray-400 mb-4">
+        Create your first annotation project
       </p>
-      <UiButton variant="primary">
-        <Plus :size="18" />
-        Create Project
-      </UiButton>
+      <NButton type="primary" size="small" @click="showCreateModal = true">
+        <template #icon>
+          <Plus :size="14" />
+        </template>
+        New Project
+      </NButton>
     </div>
     </div>
+    
+    <!-- Create Project Modal -->
+    <ProjectCreateProjectModal
+      v-if="showCreateModal"
+      @close="showCreateModal = false"
+    />
   </div>
 </template>
